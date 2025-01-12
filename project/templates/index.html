@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP8266 Agriculture Monitoring</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        table, th, td { border: 1px solid black; padding: 10px; }
+        th { text-align: left; }
+        canvas { margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <h1>ESP8266 Agriculture Monitoring</h1>
+
+    <h2>Board 1 Data</h2>
+    <table id="board1">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Soil Moisture</th>
+                <th>Humidity</th>
+                <th>Temperature</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Board 2 Data</h2>
+    <table id="board2">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Soil Temperature</th>
+                <th>Air Quality</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Board 1 Sensor Data Charts</h2>
+    <canvas id="soilMoistureChart1" width="400" height="200"></canvas>
+    <canvas id="temperatureChart1" width="400" height="200"></canvas>
+    <canvas id="humidityChart1" width="400" height="200"></canvas>
+
+    <h2>Board 2 Sensor Data Charts</h2>
+    <canvas id="soilTempChart2" width="400" height="200"></canvas>
+    <canvas id="airQualityChart2" width="400" height="200"></canvas>
+
+    <script>
+        let board1Data = {soilMoisture: [], humidity: [], temperature: [], timestamps: []};
+        let board2Data = {soilTemp: [], airQuality: [], timestamps: []};
+    
+        // Fetch data from the API every 5 seconds
+        setInterval(function() {
+            fetch('http://192.168.126.89:8000/get_data')  // Replace <server-ip> with your server IP
+            .then(response => response.json())
+            .then(data => {
+                // Board 1 data
+                board1Data = {
+                    soilMoisture: data.board_1.map(item => item.soil_moisture),
+                    humidity: data.board_1.map(item => item.humidity),
+                    temperature: data.board_1.map(item => item.temperature),
+                    timestamps: data.board_1.map(item => new Date(item.timestamp * 1000).toLocaleString())
+                };
+    
+                // Board 2 data
+                board2Data = {
+                    soilTemp: data.board_2.map(item => item.soil_temp),
+                    airQuality: data.board_2.map(item => item.air_quality),
+                    timestamps: data.board_2.map(item => new Date(item.timestamp * 1000).toLocaleString())
+                };
+    
+                updateTable('board1', board1Data);
+                updateTable('board2', board2Data);
+                updateCharts();
+            });
+        }, 5000);
+    
+        function updateTable(board, data) {
+            const table = document.getElementById(board).getElementsByTagName('tbody')[0];
+            table.innerHTML = ''; // Clear existing rows
+    
+            // Check if the data is empty
+            if (data.timestamps.length === 0) {
+                return; // Don't populate table if no data is present
+            }
+    
+            for (let i = 0; i < data.timestamps.length; i++) {
+                const row = table.insertRow();
+                const timestampCell = row.insertCell(0);
+                timestampCell.textContent = data.timestamps[i];
+    
+                // Board 1 cells
+                if (board === 'board1') {
+                    const moistureCell = row.insertCell(1);
+                    moistureCell.textContent = `${data.soilMoisture[i]}%`; // Assuming soil moisture is a percentage
+    
+                    const humidityCell = row.insertCell(2);
+                    humidityCell.textContent = `${data.humidity[i]}%`;
+    
+                    const temperatureCell = row.insertCell(3);
+                    temperatureCell.textContent = `${data.temperature[i]}°C`;
+                }
+    
+                // Board 2 cells
+                if (board === 'board2') {
+                    const soilTempCell = row.insertCell(1);
+                    soilTempCell.textContent = `${data.soilTemp[i]}°C`;
+    
+                    const airQualityCell = row.insertCell(2);
+                    airQualityCell.textContent = `${data.airQuality[i]}`;
+                }
+            }
+        }
+    
+        function updateCharts() {
+            // Board 1 soil moisture chart
+            new Chart(document.getElementById('soilMoistureChart1'), {
+                type: 'line',
+                data: {
+                    labels: board1Data.timestamps,
+                    datasets: [{
+                        label: 'Soil Moisture',
+                        data: board1Data.soilMoisture,
+                        borderColor: 'rgb(255, 99, 132)',
+                        fill: false
+                    }]
+                }
+            });
+    
+            // Board 1 temperature chart
+            new Chart(document.getElementById('temperatureChart1'), {
+                type: 'line',
+                data: {
+                    labels: board1Data.timestamps,
+                    datasets: [{
+                        label: 'Temperature',
+                        data: board1Data.temperature,
+                        borderColor: 'rgb(54, 162, 235)',
+                        fill: false
+                    }]
+                }
+            });
+    
+            // Board 1 humidity chart
+            new Chart(document.getElementById('humidityChart1'), {
+                type: 'line',
+                data: {
+                    labels: board1Data.timestamps,
+                    datasets: [{
+                        label: 'Humidity',
+                        data: board1Data.humidity,
+                        borderColor: 'rgb(75, 192, 192)',
+                        fill: false
+                    }]
+                }
+            });
+    
+            // Board 2 soil temperature chart
+            new Chart(document.getElementById('soilTempChart2'), {
+                type: 'line',
+                data: {
+                    labels: board2Data.timestamps,
+                    datasets: [{
+                        label: 'Soil Temperature',
+                        data: board2Data.soilTemp,
+                        borderColor: 'rgb(153, 102, 255)',
+                        fill: false
+                    }]
+                }
+            });
+    
+            // Board 2 air quality chart
+            new Chart(document.getElementById('airQualityChart2'), {
+                type: 'line',
+                data: {
+                    labels: board2Data.timestamps,
+                    datasets: [{
+                        label: 'Air Quality',
+                        data: board2Data.airQuality,
+                        borderColor: 'rgb(255, 159, 64)',
+                        fill: false
+                    }]
+                }
+            });
+        }
+    </script>
+</body>
+</html>
